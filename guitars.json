@@ -1,5 +1,5 @@
 {
-  "default": "acoustic",
+  "default": "bass",
   "guitars": {
     "acoustic": {
       "tuning": [
@@ -9,6 +9,14 @@
         "D3",
         "A2",
         "D2"
+      ]
+    },
+    "bass": {
+      "tuning": [
+        "G3",
+        "D3",
+        "A2",
+        "E2"
       ]
     },
     "drop_d": {

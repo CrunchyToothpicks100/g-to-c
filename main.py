@@ -41,14 +41,14 @@ class Guitar:
             string_number = index if not reverse else total_strings + 1 - index
             print(f"String {string_number}: {note}")
 
-    def fret(self, guitar_string: int, fret_num: int) -> str:
+    def fret(self, guitar_string: int, fret_num: int, accidental: str = "sharp") -> str:
         if guitar_string < 1 or guitar_string > len(self.tuning.notes):
             raise IndexError("guitar_string is out of range for this tuning")
 
         open_string = self.tuning.strings()[guitar_string - 1]
         open_note_num = nc.note_to_num(open_string)
         semitone = open_note_num + fret_num
-        return nc.num_to_note(semitone)
+        return nc.num_to_note(semitone, accidental)
 
 
 DADGAD = Tuning(("D4", "A3", "G3", "D3", "A2", "D2"))
@@ -117,11 +117,30 @@ def get_tuning(guitar: Guitar | None = None, reverse: bool = False) -> None:
 def fret(
     guitar_string: int,
     fret_num: int,
+    accidental: str = "sharp",
     guitar: Guitar | None = None,
 ) -> str:
     if guitar is None:
         guitar = _resolve_default_guitar()
-    return guitar.fret(guitar_string, fret_num)
+    return guitar.fret(guitar_string, fret_num, accidental)
+
+
+def fret_chord(
+    guitar_strings: tuple[int, ...] | list[int],
+    fret_nums: tuple[int, ...] | list[int],
+    accidental: str = "sharp",
+    guitar: Guitar | None = None,
+) -> str:
+    if guitar is None:
+        guitar = _resolve_default_guitar()
+    if len(fret_nums) != len(guitar_strings):
+        raise ValueError("guitar_strings and fret_nums must be the same size.")
+
+    notes: list[str] = []
+    for guitar_string, fret_num in zip(guitar_strings, fret_nums):
+        notes.append(guitar.fret(guitar_string, fret_num, accidental))
+
+    return "\n".join(notes)
 
 
 def main() -> None:
