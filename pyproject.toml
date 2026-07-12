@@ -1,0 +1,7 @@
+[project]
+name = "g-to-c"
+version = "0.1.0"
+description = "This is a music theory tool for guitarists who know python"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = []

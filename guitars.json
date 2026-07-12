@@ -1,0 +1,35 @@
+{
+  "default": "acoustic",
+  "guitars": {
+    "acoustic": {
+      "tuning": [
+        "D4",
+        "A3",
+        "G3",
+        "D3",
+        "A2",
+        "D2"
+      ]
+    },
+    "drop_d": {
+      "tuning": [
+        "E4",
+        "B3",
+        "G3",
+        "D3",
+        "A2",
+        "D2"
+      ]
+    },
+    "standard": {
+      "tuning": [
+        "E4",
+        "B3",
+        "G3",
+        "D3",
+        "A2",
+        "E2"
+      ]
+    }
+  }
+}
