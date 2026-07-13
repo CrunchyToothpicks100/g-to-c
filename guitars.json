@@ -1,42 +1,42 @@
 {
-  "default": "bass",
+  "default": "standard",
   "guitars": {
     "acoustic": {
       "tuning": [
-        "D4",
-        "A3",
-        "G3",
-        "D3",
+        "D2",
         "A2",
-        "D2"
+        "D3",
+        "G3",
+        "A3",
+        "D4"
       ]
     },
     "bass": {
       "tuning": [
-        "G3",
-        "D3",
+        "E2",
         "A2",
-        "E2"
+        "D3",
+        "G3"
       ]
     },
     "drop_d": {
       "tuning": [
-        "E4",
-        "B3",
-        "G3",
-        "D3",
+        "D2",
         "A2",
-        "D2"
+        "D3",
+        "G3",
+        "B3",
+        "E4"
       ]
     },
     "standard": {
       "tuning": [
-        "E4",
-        "B3",
-        "G3",
-        "D3",
+        "E2",
         "A2",
-        "E2"
+        "D3",
+        "G3",
+        "B3",
+        "E4"
       ]
     }
   }

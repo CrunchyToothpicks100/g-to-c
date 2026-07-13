@@ -2,8 +2,6 @@
 
 import re
 
-NOTE_RE = re.compile(r"^(?P<letter>[A-Ga-g])(?P<accidental>[#b]?)(?P<octave>-?\d+)?$")
-
 NOTE_TO_SEMITONE = {
     "C": 0,
     "D": 2,
@@ -50,6 +48,28 @@ SEMITONE_TO_NOTE_FLATS = {
     11: "B",
 }
 
+INTERVAL_TO_NAME = {
+    0: "unison",
+    1: "b2",
+    2: "sus2",
+    3: "minor",
+    4: "major",
+    5: "sus4",
+    6: "b5",
+    7: "5",
+    8: "aug",
+    9: "6",
+    10: "b7",
+    11: "maj7",
+    12: "octave",
+    13: "b9",
+    14: "add9",
+    17: "add13",
+    18: "#13"
+}
+
+# Regex hell
+NOTE_RE = re.compile(r"^(?P<letter>[A-Ga-g])(?P<accidental>[#b]?)(?P<octave>-?\d+)?$")
 
 def _parse_note(word: str) -> tuple[str, str, str | None]:
     match = NOTE_RE.fullmatch(word.strip())
@@ -71,8 +91,8 @@ def note_to_num(word: str) -> int:
 
 # 10 = "A#0", 20 = "G#1"
 def num_to_note(
-    num: int,
-    accidental: str = "sharp",
+        num: int,
+        accidental: str = "sharp",
 ) -> str:
     if accidental not in {"sharp", "flat"}:
         raise ValueError("accidental must be 'sharp' or 'flat'")
@@ -83,6 +103,7 @@ def num_to_note(
     return f"{note}{octave}"
 
 
+# F#2 -> Gb2, Db3 -> C#3
 def switch_accidental(word: str) -> str:
     letter, accidental, octave = _parse_note(word)
 
@@ -97,3 +118,57 @@ def switch_accidental(word: str) -> str:
         octave = ""
 
     return letter + accidental + octave
+
+
+# Intervals are measured in semitones, or half-steps
+def notes_to_chord(
+        notes: list[str],
+        quiet: bool = False
+) -> str:
+    if len(notes) == 0:
+        raise ValueError("'notes' cannot be empty.")
+
+    intervals = [note_to_num(note) for note in notes]       # example: Bb, Gb, Db -> 10, 18, 25
+    root_idx = get_stable_root_index(intervals)             # root_idx = 1
+    offset = intervals[root_idx]                            # offset = 18
+    stable_intervals = [x - offset for x in intervals]      # -8, 0, 7
+
+    chord = ""
+
+    if root_idx > 1:
+        chord += "/" + notes_to_chord(notes[0:root_idx])
+    elif root_idx == 1:
+        chord += "/" + notes[0]
+
+    return str(stable_intervals)
+
+
+def interval_to_name(interval: int) -> str:
+    while interval > 0:
+        name = INTERVAL_TO_NAME.get(interval)
+        if name is not None:
+            return name
+        interval -= 12
+    return ""
+
+def get_stable_root_index(intervals: list[int]) -> int:
+    if len(intervals) in [1, 2]:
+        return 0
+
+    stable_root_index = 0
+    target = 0
+    i = 0
+    j = 0
+    for i in range(len(intervals)):
+        fifths_or_octaves = 0
+        for j in range(len(intervals)):
+            ivl = (intervals[j] - intervals[i]) % 12
+            if ivl in [7, 12]:
+                fifths_or_octaves += 1
+        if fifths_or_octaves > target:
+            target = fifths_or_octaves
+            stable_root_index = i
+
+    return stable_root_index
+
+

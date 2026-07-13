@@ -1,79 +1,100 @@
 from __future__ import annotations
-
 from dataclasses import dataclass
 
 import note_conversion as nc
 import guitar_registry as gr
 
-
-@dataclass
-class Tuning:
-    notes: tuple[str, ...]
-
-    def __post_init__(self) -> None:
-        if not isinstance(self.notes, tuple):
-            self.notes = tuple(self.notes)
-
-        if not self.notes:
-            raise ValueError("Tuning must contain at least one string")
-
-    def strings(self, reverse: bool = False) -> tuple[str, ...]:
-        return tuple(reversed(self.notes)) if reverse else self.notes
-
-    def to_list(self) -> list[str]:
-        return list(self.notes)
-
-    @classmethod
-    def from_iterable(cls, notes: tuple[str, ...] | list[str]) -> Tuning:
-        return cls(tuple(notes))
-
+# See GUITAR_TUNING.md for tuning info
 
 @dataclass
 class Guitar:
     name: str
-    tuning: Tuning
+    tuning: tuple[str, ...]
 
-    def get_tuning(self, reverse: bool = False) -> None:
-        strings = self.tuning.strings(reverse=reverse)
-        total_strings = len(strings)
+    def __post_init__(self) -> None:
+        if not isinstance(self.tuning, tuple):
+            self.tuning = tuple(self.tuning)
 
-        for index, note in enumerate(strings, start=1):
-            string_number = index if not reverse else total_strings + 1 - index
-            print(f"String {string_number}: {note}")
+        if not self.tuning:
+            raise ValueError("Tuning must contain at least one string")
 
+    # For printing tuning
+    # High to low is default unless high_to_low=False is specified
+    def get_tuning(self, high_to_low: bool = True) -> None:
+        if high_to_low:
+            string_numbers = range(1, len(self.tuning) + 1)  # 1, 2, 3, ...
+            strings_zip = zip(string_numbers, tuple(reversed(self.tuning)))
+        else:
+            string_numbers = range(len(self.tuning), 0, -1)  # ..., 3, 2, 1
+            strings_zip = zip(string_numbers, self.tuning)
+
+        output: list[str] = []
+
+        for string_number, note in strings_zip:
+            which_side = ""
+            if string_number == len(self.tuning):
+                which_side = "(low)"
+            if string_number == 1:
+                which_side = "(high)"
+            output.append(f"String {string_number}: {note} {which_side}".rstrip())
+
+        print("\n".join(output))
+
+    # guitar_string is the actual string number, not the index
     def fret(self, guitar_string: int, fret_num: int, accidental: str = "sharp") -> str:
-        if guitar_string < 1 or guitar_string > len(self.tuning.notes):
+        strings = self.tuning
+
+        if guitar_string < 1 or guitar_string > len(strings):
             raise IndexError("guitar_string is out of range for this tuning")
 
-        open_string = self.tuning.strings()[guitar_string - 1]
+        open_string = strings[len(strings) - guitar_string]
         open_note_num = nc.note_to_num(open_string)
         semitone = open_note_num + fret_num
         return nc.num_to_note(semitone, accidental)
 
+    # -1 or 'x' means "muted string"
+    # Example: A# power chord on bass
+    # ba = load_guitar("bass", tuning=("E1", "A1", "D2", "G2"))
+    # ba.fret_notes(('x', 1, 3, 'x'))
+    def fret_notes(
+            self,
+            fret_nums: tuple[str|int, ...],
+            accidental: str = "sharp",
+            quiet: bool = False
+    ) -> str:
+        notes = []
+        i = len(self.tuning)
+        for fret_num in fret_nums:
+            if fret_num == 'x':
+                fret_num = -1
+            if isinstance(fret_num, str) or fret_num < -1:
+                raise ValueError("Invalid fret_num. Use -1 or 'x' for muted strings.")
+            elif fret_num > -1:
+                # print(f"i={i}, fret_num={fret_num}, accidental={accidental}")
+                notes.append(self.fret(i, fret_num, accidental))
+            i -= 1
 
-DADGAD = Tuning(("D4", "A3", "G3", "D3", "A2", "D2"))
-STANDARD = Tuning(("E4", "B3", "G3", "D3", "A2", "E2"))
-DROP_D = Tuning(("E4", "B3", "G3", "D3", "A2", "D2"))
-default_guitar: Guitar | None = None
+        print(notes)
+        return nc.notes_to_chord(notes, quiet)
 
+
+STANDARD = ("E2", "A2", "D3", "G3", "B3", "E4")
+DROP_D = ("D2", "A2", "D3", "G3", "B3", "E4")
+DADGAD = ("D2", "A2", "D3", "G3", "A3", "D4")
+OPEN_D = ("D2", "A2", "D3", "F#3", "A3", "D4")
 
 def add_guitar(
-    name: str,
-    tuning: Tuning | tuple[str, ...] | list[str],
-    default: bool = False,
+        name: str,
+        tuning: tuple[str, ...],
+        default: bool = False,
 ) -> Guitar:
-    tuning_obj = tuning if isinstance(tuning, Tuning) else Tuning.from_iterable(tuning)
-    gr.add_guitar_record(name, tuning_obj.to_list(), default=default)
-    guitar = Guitar(name=name, tuning=tuning_obj)
-    if default or gr.get_default_guitar_name() == name:
-        global default_guitar
-        default_guitar = guitar
-    return guitar
+    gr.add_guitar_record(name, list(tuning), default=default)
+    return Guitar(name=name, tuning=tuning)
 
 
 def load_guitar(name: str) -> Guitar:
     record = gr.get_guitar_record(name)
-    return Guitar(name=name, tuning=Tuning.from_iterable(record["tuning"]))
+    return Guitar(name=name, tuning=record["tuning"])
 
 
 def list_guitars() -> list[str]:
@@ -81,75 +102,55 @@ def list_guitars() -> list[str]:
 
 
 def remove_guitar(name: str) -> None:
-    global default_guitar
     gr.remove_guitar_record(name)
-    if default_guitar is not None and default_guitar.name == name:
-        default_guitar = None
 
 
-def set_default_guitar(name: str) -> Guitar:
-    global default_guitar
+def set_default_guitar(guitar: Guitar | str) -> Guitar:
+    name = guitar if not isinstance(guitar, Guitar) else guitar.name
     gr.set_default_guitar_name(name)  # see guitar_registry.py
-    default_guitar = load_guitar(name)
-    return default_guitar
+    return load_guitar(name)
 
 
-def _resolve_default_guitar() -> Guitar:
-    global default_guitar
-
-    if default_guitar is not None:
-        return default_guitar
-
-    default_name = gr.get_default_guitar_name()
-    if default_name is None:
+def get_default_guitar() -> Guitar:
+    registry_default = gr.get_default_guitar_name()
+    if registry_default is None:
         raise ValueError("Default guitar not set.")
-
-    default_guitar = load_guitar(default_name)
-    return default_guitar
+    return load_guitar(registry_default)
 
 
-def get_tuning(guitar: Guitar | None = None, reverse: bool = False) -> None:
+def get_tuning(high_to_low: bool = True, guitar: Guitar | None = None) -> None:
     if guitar is None:
-        guitar = _resolve_default_guitar()
-    guitar.get_tuning(reverse=reverse)
+        guitar = get_default_guitar()
+    guitar.get_tuning(high_to_low)
 
 
 def fret(
-    guitar_string: int,
-    fret_num: int,
-    accidental: str = "sharp",
-    guitar: Guitar | None = None,
+        guitar_string: int,
+        fret_num: int,
+        accidental: str = "sharp",
+        guitar: Guitar | None = None,
 ) -> str:
     if guitar is None:
-        guitar = _resolve_default_guitar()
+        guitar = get_default_guitar()
     return guitar.fret(guitar_string, fret_num, accidental)
 
 
-def fret_chord(
-    guitar_strings: tuple[int, ...] | list[int],
-    fret_nums: tuple[int, ...] | list[int],
-    accidental: str = "sharp",
-    guitar: Guitar | None = None,
+def fret_notes(
+        fret_nums: tuple[str|int, ...],
+        accidental: str = "sharp",
+        guitar: Guitar | None = None,
 ) -> str:
     if guitar is None:
-        guitar = _resolve_default_guitar()
-    if len(fret_nums) != len(guitar_strings):
-        raise ValueError("guitar_strings and fret_nums must be the same size.")
-
-    notes: list[str] = []
-    for guitar_string, fret_num in zip(guitar_strings, fret_nums):
-        notes.append(guitar.fret(guitar_string, fret_num, accidental))
-
-    return "\n".join(notes)
+        guitar = get_default_guitar()
+    return guitar.fret_notes(fret_nums, accidental)
 
 
 def main() -> None:
     print("Hello from g-to-c!")
+    print()
+    default_name = gr.get_default_guitar_name()
+    print(f"Default guitar: {default_name}")
     get_tuning()
-
-registry_default = gr.get_default_guitar_name()
-if registry_default is not None:
-    default_guitar = load_guitar(registry_default)
 
 
 if __name__ == "__main__":
