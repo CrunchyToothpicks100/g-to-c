@@ -40,21 +40,24 @@ class Guitar:
 
         print("\n".join(output))
 
-    # guitar_string is the actual string number, not the index
-    def fret(self, guitar_string: int, fret_num: int, accidental: str = "sharp") -> str:
+    def _fret_ivl(self, guitar_string: int, fret_num: int):
         strings = self.tuning
-
-        if guitar_string < 1 or guitar_string > len(strings):
-            raise IndexError("guitar_string is out of range for this tuning")
-
         open_string = strings[len(strings) - guitar_string]
         open_note_num = nc.note_to_num(open_string)
         semitone = open_note_num + fret_num
-        return nc.num_to_note(semitone, accidental)
+        return semitone
+
+    # ba = load_guitar("bass", tuning=("E1", "A1", "D2", "G2"))
+    # ba.fret(6, 3) -> 19 -> G1
+    # guitar_string is the actual string number, gets converted to an index
+    def fret(self, guitar_string: int, fret_num: int, accidental: str = "sharp") -> str:
+        if guitar_string < 1 or guitar_string > len(self.tuning):
+            raise IndexError("guitar_string is out of range for this tuning")
+
+        ivl = self._fret_ivl(guitar_string, fret_num)
+        return nc.num_to_note(ivl, accidental)
 
     # -1 or 'x' means "muted string"
-    # Example: A# power chord on bass
-    # ba = load_guitar("bass", tuning=("E1", "A1", "D2", "G2"))
     # ba.fret_notes(('x', 1, 3, 'x'))
     def fret_notes(
             self,
@@ -70,8 +73,8 @@ class Guitar:
             if isinstance(fret_num, str) or fret_num < -1:
                 raise ValueError("Invalid fret_num. Use -1 or 'x' for muted strings.")
             elif fret_num > -1:
-                # print(f"i={i}, fret_num={fret_num}, accidental={accidental}")
-                notes.append(self.fret(i, fret_num, accidental))
+                ivl = self._fret_ivl(i, fret_num)
+                notes.append(nc.num_to_note(ivl))
             i -= 1
 
         print(notes)

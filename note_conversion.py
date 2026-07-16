@@ -1,5 +1,3 @@
-# ruff: noqa: F841
-
 import re
 
 NOTE_TO_SEMITONE = {
@@ -46,26 +44,6 @@ SEMITONE_TO_NOTE_FLATS = {
     9: "A",
     10: "Bb",
     11: "B",
-}
-
-INTERVAL_TO_NAME = {
-    0: "unison",
-    1: "b2",
-    2: "sus2",
-    3: "minor",
-    4: "major",
-    5: "sus4",
-    6: "b5",
-    7: "5",
-    8: "aug",
-    9: "6",
-    10: "b7",
-    11: "maj7",
-    12: "octave",
-    13: "b9",
-    14: "add9",
-    17: "add13",
-    18: "#13"
 }
 
 # Regex hell
@@ -120,7 +98,13 @@ def switch_accidental(word: str) -> str:
     return letter + accidental + octave
 
 
-# Intervals are measured in semitones, or half-steps
+# example: fret_notes(('x', 0, 3, 2, 1, 1), g_capo_1)
+# -> A#, F#, A#, C#, F#
+# -> 10, 18, 22, 25, 30
+# root_idx = 1
+# offset = 18
+# stable_ivls = [-8, 0, 4, 7, 0]
+# chord = "F#/A#"
 def notes_to_chord(
         notes: list[str],
         quiet: bool = False
@@ -128,28 +112,118 @@ def notes_to_chord(
     if len(notes) == 0:
         raise ValueError("'notes' cannot be empty.")
 
-    intervals = [note_to_num(note) for note in notes]       # example: Bb, Gb, Db -> 10, 18, 25
-    root_idx = get_stable_root_index(intervals)             # root_idx = 1
-    offset = intervals[root_idx]                            # offset = 18
-    stable_intervals = [x - offset for x in intervals]      # -8, 0, 7
+    intervals = [note_to_num(note) for note in notes]
+    root_idx = get_stable_root_index(intervals)
+    offset = intervals[root_idx]
+    stable_ivls = ((x - offset) % 12 for x in intervals)
+    if not quiet:
+        print(stable_ivls)
 
-    chord = ""
+    is_major = 4 in stable_ivls
+    is_minor = 3 in stable_ivls and not is_major
+    is_sus4 = 5 in stable_ivls and not (is_major or is_minor)
+    is_sus2 = 2 in stable_ivls and not (is_sus4 or is_major or is_minor)
+    is_power = set(stable_ivls).issubset({0, 7})  # ONLY octaves and perf 5s
+    is_dim = {3, 6}.issubset(stable_ivls) and {7, 10, 11}.isdisjoint(stable_ivls)  # must have triad, no perf 5s or 7s
+    is_aug = {4, 8}.issubset(stable_ivls) and {7, 10, 11}.isdisjoint(stable_ivls)  # must have triad, no perf 5s or 7s
+    is_dim7 = is_dim and 9 in stable_ivls  # must be diminished with bb7 (b6)
+    is_dom7 = 10 in stable_ivls
+    is_maj7 = 11 in stable_ivls
+    has_seven = is_dim7 or is_dom7 or is_maj7  # These chords will use 13 rather than 6
+    has_six = not {8, 9}.isdisjoint(stable_ivls) and not has_seven  # Includes aug
+
+    # Find root note, strip the octave number
+    root_note = re.sub(r"\d+$", "", notes[root_idx])
+    triad = "dim" if is_dim else "aug" if is_aug else "" if is_major else "m" if is_minor else "5" if is_power else ""
+    sus = "sus" if is_sus4 else "sus2" if is_sus2 else ""
+    six: list[str] = []
+    seven = "7" if is_dom7 or is_dim7 else "maj7" if is_maj7 else ""
+    extensions: list[str] = []
+    slash = ""
 
     if root_idx > 1:
-        chord += "/" + notes_to_chord(notes[0:root_idx])
+        slash = "/" + notes_to_chord(notes[0:root_idx])
     elif root_idx == 1:
-        chord += "/" + notes[0]
+        slash = "/" + notes[0]
 
-    return str(stable_intervals)
+    # 1: b9
+    # 2: sus2
+    # 3: minor (#9)
+    # 4: (major)
+    # 5: sus4
+    # 6: b5 (dim?)
+    # 7: 5
+    # 8: #5, b6 (aug?)
+    # 9: 6
+    # 10: b7
+    # 11: maj7
+    for ivl in stable_ivls:
+        match ivl:
+            case 1:  # m2
+                extensions.append("b9" if has_seven else "addb9")
+                if not quiet:
+                    print("m2 pass")
+            case 2:  # 2
+                if is_major or is_minor or is_sus4:
+                    if is_dom7 or is_dim7:
+                        seven = "9"
+                    elif is_maj7:
+                        seven = "maj9"
+                    elif has_six:
+                        six.append("9")
+                    else:
+                        extensions.append("add9")
+                    if not quiet:
+                        print("2 pass")
+            case 3:  # m3
+                if is_major:
+                    extensions.append("#9" if has_seven else "add#9")
+                    if not quiet:
+                        print("m3 pass")
+                     # 3 (pass)
+            case 5:  # 4
+                if is_major or is_minor:
+                    if is_dom7 or is_dim7:
+                        seven = "11"
+                    elif is_maj7:
+                        seven = "maj11"
+                    elif has_six:
+                        six.append("11")
+                    else:
+                        extensions.append("add11")
+                    if not quiet:
+                        print("4 pass")
+            case 6:  # b5
+                if is_major:
+                    extensions.append("#11" if has_seven else "add#11")
+                elif not is_dim:
+                    extensions.append("b5")
+                     # 5 (pass)
+            case 8:  # b6
+                if is_dom7:
+                    extensions.append("b13")
+                elif is_maj7:
+                    extensions.append("#5")
+                elif not has_six:
+                    extensions.append("b6")
+            case 9:  # 6
+                if is_major or is_minor:
+                    if is_dom7 or is_dim7:
+                        seven = "13"
+                    elif is_maj7:
+                        seven = "maj13"
+                    elif has_six:
+                        six.append("13")
 
 
-def interval_to_name(interval: int) -> str:
-    while interval > 0:
-        name = INTERVAL_TO_NAME.get(interval)
-        if name is not None:
-            return name
-        interval -= 12
-    return ""
+    if not (is_major or is_minor or is_power):
+        extensions.append("no3")
+
+    chord = root_note + triad + "/".join(six) + seven + sus + "(" + ",".join(extensions) + ")" + slash
+    print(chord)
+
+    return chord
+
 
 def get_stable_root_index(intervals: list[int]) -> int:
     if len(intervals) in [1, 2]:
@@ -170,5 +244,4 @@ def get_stable_root_index(intervals: list[int]) -> int:
             stable_root_index = i
 
     return stable_root_index
-
 
