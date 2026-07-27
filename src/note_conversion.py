@@ -164,7 +164,7 @@ def _no_7th(ivls: set[int]) -> bool:
 
 
 def _notate_ivls(ivls: set[int]) -> list[str]:
-    return [SEMITONE_TO_IVLS[i] for i in ivls]
+    return [SEMITONE_TO_IVLS[i % 12] for i in ivls]
 
 
 # Example (standard tuning):
@@ -198,8 +198,18 @@ def notes_to_chord(
     root_idx = _get_stable_root_index(intervals) if find_inversion else 0
     offset = intervals[root_idx]
     offset_ivls = [x - offset for x in intervals]
-    print(f"Notes: {notes}")
-    print(f"Offset ivls: {offset_ivls}")
+    print(f"Offset ivls: {_notate_ivls(set(offset_ivls))}")
+
+    # Find root note, strip the octave number
+    root_note: str = _strip_octave(notes[root_idx])
+
+    # Escape power chords
+    is_power = set([x % 12 for x in offset_ivls]).issubset(
+        {0, 7}
+    )  # ONLY octaves and perf 5s
+    if is_power:
+        chord = root_note + "5"
+        return chord
 
     # Sets used for dropping duplicates and O(1) search
     stable_ivls: set[int] = set()
@@ -214,10 +224,18 @@ def notes_to_chord(
                 poly_chords.append(
                     (
                         notes_to_chord(
-                            notes[0:i], verbose=False, find_slash=False, find_poly=False
+                            notes[0:i],
+                            verbose=False,
+                            find_inversion=True,
+                            find_slash=False,
+                            find_poly=False,
                         ),
                         notes_to_chord(
-                            notes[i:], verbose=False, find_slash=False, find_poly=False
+                            notes[i:],
+                            verbose=False,
+                            find_inversion=True,
+                            find_slash=False,
+                            find_poly=False,
                         ),
                     )
                 )
@@ -238,17 +256,6 @@ def notes_to_chord(
                 + "/"
                 + _strip_octave(notes[0])
             )
-
-    # Find root note, strip the octave number
-    root_note: str = _strip_octave(notes[root_idx])
-
-    # Escape power chords
-    is_power = set([x % 12 for x in offset_ivls]).issubset(
-        {0, 7}
-    )  # ONLY octaves and perf 5s
-    if is_power:
-        chord = root_note + "5" + slash_chord
-        return chord
 
     # Separate interval lists by octave
     # Unison notes not needed
