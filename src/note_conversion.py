@@ -198,7 +198,6 @@ def notes_to_chord(
     root_idx = _get_stable_root_index(intervals) if find_inversion else 0
     offset = intervals[root_idx]
     offset_ivls = [x - offset for x in intervals]
-    print(f"Offset ivls: {_notate_ivls(set(offset_ivls))}")
 
     # Find root note, strip the octave number
     root_note: str = _strip_octave(notes[root_idx])
@@ -455,7 +454,7 @@ def notes_to_chord(
         print(f"Intervals: {intervals}")
         print(f"Root Index: {root_idx}")
         print(f"Semitone offset: {offset}")
-        print(f"Offset intervals: {offset_ivls}")
+        print(f"Offset intervals: {_notate_ivls(set(offset_ivls))}")
         print(f"Stable intervals: {_notate_ivls(stable_ivls)}")
         print(f"Extension intervals: {_notate_ivls(extension_ivls)}")
         print()
@@ -469,7 +468,6 @@ def notes_to_chord(
         print(f"Triad: {triad if triad else 'none'}")
         print(f"Sus: {sus if sus else 'none'}")
         print(f"Highest seven: {seventh if seventh else 'none'}")
-        print(f"Extensions list: {parenthetical if parenthetical else 'none'}")
         print()
         if find_slash and slash_chord:
             print(f"Slash chord: {slash_chord if slash_chord else 'none'}")
