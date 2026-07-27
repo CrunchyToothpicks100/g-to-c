@@ -6,15 +6,13 @@ import guitar_registry as gr
 
 # See GUITAR_TUNING.md for tuning info
 
+
 @dataclass
 class Guitar:
     name: str
     tuning: tuple[str, ...]
 
     def __post_init__(self) -> None:
-        if not isinstance(self.tuning, tuple):
-            self.tuning = tuple(self.tuning)
-
         if not self.tuning:
             raise ValueError("Tuning must contain at least one string")
 
@@ -57,28 +55,39 @@ class Guitar:
         ivl = self._fret_ivl(guitar_string, fret_num)
         return nc.num_to_note(ivl, accidental)
 
+    # Convert fret numbers into notes and call nc.notes_to_chord()
     # -1 or 'x' means "muted string"
     # ba.fret_notes(('x', 1, 3, 'x'))
     def fret_notes(
-            self,
-            fret_nums: tuple[str|int, ...],
-            accidental: str = "sharp",
-            quiet: bool = False
+        self,
+        fret_nums: tuple[str | int, ...],
+        *,
+        accidental: str = "sharp",
+        verbose: bool = True,
+        find_inversion: bool = False,
+        find_slash: bool = True,
+        find_poly: bool = True,
     ) -> str:
         notes = []
         i = len(self.tuning)
         for fret_num in fret_nums:
-            if fret_num == 'x':
+            if fret_num == "x":
                 fret_num = -1
             if isinstance(fret_num, str) or fret_num < -1:
                 raise ValueError("Invalid fret_num. Use -1 or 'x' for muted strings.")
             elif fret_num > -1:
                 ivl = self._fret_ivl(i, fret_num)
-                notes.append(nc.num_to_note(ivl))
+                notes.append(nc.num_to_note(ivl, accidental))
             i -= 1
 
-        print(notes)
-        return nc.notes_to_chord(notes, quiet)
+        print(f"Notes: {notes}")
+        return nc.notes_to_chord(
+            notes,
+            verbose=verbose,
+            find_inversion=find_inversion,
+            find_slash=find_slash,
+            find_poly=find_poly,
+        )
 
 
 STANDARD = ("E2", "A2", "D3", "G3", "B3", "E4")
@@ -86,10 +95,11 @@ DROP_D = ("D2", "A2", "D3", "G3", "B3", "E4")
 DADGAD = ("D2", "A2", "D3", "G3", "A3", "D4")
 OPEN_D = ("D2", "A2", "D3", "F#3", "A3", "D4")
 
+
 def add_guitar(
-        name: str,
-        tuning: tuple[str, ...],
-        default: bool = False,
+    name: str,
+    tuning: tuple[str, ...],
+    default: bool = False,
 ) -> Guitar:
     gr.add_guitar_record(name, list(tuning), default=default)
     return Guitar(name=name, tuning=tuning)
@@ -128,10 +138,10 @@ def get_tuning(high_to_low: bool = True, guitar: Guitar | None = None) -> None:
 
 
 def fret(
-        guitar_string: int,
-        fret_num: int,
-        accidental: str = "sharp",
-        guitar: Guitar | None = None,
+    guitar_string: int,
+    fret_num: int,
+    accidental: str = "sharp",
+    guitar: Guitar | None = None,
 ) -> str:
     if guitar is None:
         guitar = get_default_guitar()
@@ -139,13 +149,25 @@ def fret(
 
 
 def fret_notes(
-        fret_nums: tuple[str|int, ...],
-        accidental: str = "sharp",
-        guitar: Guitar | None = None,
+    fret_nums: tuple[str | int, ...],
+    *,
+    guitar: Guitar | None = None,
+    accidental: str = "sharp",
+    verbose: bool = True,
+    find_inversion: bool = False,
+    find_slash: bool = True,
+    find_poly: bool = True,
 ) -> str:
     if guitar is None:
         guitar = get_default_guitar()
-    return guitar.fret_notes(fret_nums, accidental)
+    return guitar.fret_notes(
+        fret_nums=fret_nums,
+        accidental=accidental,
+        verbose=verbose,
+        find_inversion=find_inversion,
+        find_slash=find_slash,
+        find_poly=find_poly,
+    )
 
 
 def main() -> None:

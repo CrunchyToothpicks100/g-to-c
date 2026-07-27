@@ -4,7 +4,8 @@ import json
 from pathlib import Path
 from typing import Any
 
-REGISTRY_PATH = Path(__file__).with_name("guitars.json")
+REGISTRY_PATH = Path(__file__).resolve().parent.parent / "data" / "guitars.json"
+
 
 # Read guitars.json
 def load_registry() -> dict[str, Any]:
@@ -47,7 +48,9 @@ def get_guitar_record(name: str) -> dict[str, Any]:
 
 
 # Create new guitar record
-def add_guitar_record(name: str, tuning: list[str], default: bool = False) -> dict[str, Any]:
+def add_guitar_record(
+    name: str, tuning: list[str], default: bool = False
+) -> dict[str, Any]:
     registry = load_registry()
     guitars = registry["guitars"]
     guitars[name] = {"tuning": tuning}
@@ -86,5 +89,3 @@ def get_default_guitar_name() -> str | None:
     registry = load_registry()
     default = registry.get("default")
     return default if isinstance(default, str) else None
-
-
